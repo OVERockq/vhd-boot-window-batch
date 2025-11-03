@@ -138,8 +138,8 @@ set "DP_ATTACH=%TEMP%\attach_vhd_%RANDOM%.txt"
   echo select vdisk file="%DST_VHD%"
   echo attach vdisk
   echo list partition
-  echo select partition 1
-  echo assign letter=S
+  REN echo select partition 1
+  REN echo assign letter=S
   echo select partition 2
   echo assign letter=V
 )
