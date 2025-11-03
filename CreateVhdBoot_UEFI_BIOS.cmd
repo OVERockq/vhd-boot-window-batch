@@ -1,18 +1,16 @@
 @echo off
-title Create Bootable VHD (UEFI / BIOS Auto)
+title Create Bootable VHD (UEFI / BIOS Auto - PE Ultra Safe)
 color 1f
-setlocal enabledelayedexpansion
+setlocal
 
 :: =====================================================
-::  VHD 부팅 자동화 스크립트 (INI 설정 기반)
-::  작성자: AiKKCU / ChatGPT5
+::   WinPE 완전 호환 버전 (for/f 내부 명령 제거)
 :: =====================================================
 
 set "CONFIG_FILE=config.ini"
 if not exist "%CONFIG_FILE%" (
   echo [ERROR] 설정 파일(config.ini)이 없습니다.
   echo 예시:
-  echo.
   echo [Settings]
   echo VHD_SOURCE=E:\VHD\BASE.vhdx
   echo VHD_DEST_DIR=C:\VHD
@@ -22,20 +20,32 @@ if not exist "%CONFIG_FILE%" (
 )
 
 :: -------------------------------------------------------
-:: 설정값 읽기
+:: 설정 파일 임시 파싱
 :: -------------------------------------------------------
-for /f "tokens=1,2 delims== " %%A in ('findstr /i "=" "%CONFIG_FILE%"') do (
-  if /i "%%A"=="VHD_SOURCE" set "SRC_VHD=%%B"
-  if /i "%%A"=="VHD_DEST_DIR" set "DST_VHD_DIR=%%B"
-  if /i "%%A"=="TARGET_DISK" set "DISK_NUM=%%B"
+set "TMP_CFG=%TEMP%\cfg.txt"
+findstr /i "=" "%CONFIG_FILE%" > "%TMP_CFG%"
+
+for /f "usebackq tokens=1* delims==" %%A in ("%TMP_CFG%") do (
+  if /I "%%A"=="VHD_SOURCE" set SRC_VHD=%%B
+  if /I "%%A"=="VHD_DEST_DIR" set DST_VHD_DIR=%%B
+  if /I "%%A"=="TARGET_DISK" set DISK_NUM=%%B
 )
+
+del "%TMP_CFG%" >nul 2>&1
+
+if "%SRC_VHD%"=="" (
+  echo [ERROR] 설정 파일에 VHD_SOURCE 항목이 없습니다.
+  pause
+  exit /b
+)
+if "%DISK_NUM%"=="" set DISK_NUM=0
+if "%DST_VHD_DIR%"=="" set DST_VHD_DIR=C:\VHD
 
 set "DST_VHD=%DST_VHD_DIR%\BASE.vhdx"
 
 echo =====================================================
 echo   BIOS / UEFI 자동 감지형 VHD 부팅 구성
 echo =====================================================
-echo [INFO] 설정 파일: %CONFIG_FILE%
 echo [INFO] 원본 VHD : %SRC_VHD%
 echo [INFO] 대상 경로: %DST_VHD%
 echo [INFO] 초기화 디스크: Disk %DISK_NUM%
@@ -83,10 +93,9 @@ echo [OK] Disk %DISK_NUM% 초기화 완료.
 echo.
 
 :: -------------------------------------------------------
-:: 2. VHD 복사 (진행률 표시)
+:: 2. VHD 복사
 :: -------------------------------------------------------
 echo [STEP 2] VHD 복사 중...
-
 if not exist "%SRC_VHD%" (
   echo [ERROR] 원본 VHD 파일이 없습니다: %SRC_VHD%
   pause
@@ -94,25 +103,12 @@ if not exist "%SRC_VHD%" (
 )
 if not exist "%DST_VHD_DIR%" mkdir "%DST_VHD_DIR%" >nul 2>&1
 
-for %%I in ("%SRC_VHD%") do set "SRC_SIZE=%%~zI"
-echo 원본 파일 크기: !SRC_SIZE! bytes
-echo.
-
-set "DEST_FILE=%DST_VHD%"
-del "%DEST_FILE%" >nul 2>&1
-
-start /b cmd /c "xcopy "%SRC_VHD%" "%DST_VHD%" /H /R /Y >nul"
-:WAITCOPY
-timeout /t 1 >nul
-if exist "%DEST_FILE%" (
-    for %%A in ("%DEST_FILE%") do set "DST_SIZE=%%~zA"
-    set /a PROG=(!DST_SIZE!*100)/!SRC_SIZE!
-    if !PROG! lss 100 (
-        <nul set /p="진행률: !PROG!%% 완료`r"
-        goto WAITCOPY
-    )
+xcopy "%SRC_VHD%" "%DST_VHD%" /H /R /Y
+if errorlevel 1 (
+  echo [ERROR] VHD 복사 실패.
+  pause
+  exit /b
 )
-echo.
 echo [OK] VHD 복사 완료.
 echo.
 
@@ -144,8 +140,8 @@ echo.
 :: 4. 부팅 모드 감지
 :: -------------------------------------------------------
 echo [STEP 4] 부팅 모드 감지 중...
-set "BOOTMODE=UEFI"
-reg query HKLM\System\CurrentControlSet\Control /v PEFirmwareType | find "0x1" >nul 2>&1 && set "BOOTMODE=BIOS"
+set BOOTMODE=UEFI
+reg query HKLM\System\CurrentControlSet\Control /v PEFirmwareType | find "0x1" >nul 2>&1 && set BOOTMODE=BIOS
 echo [INFO] 현재 부팅 모드: %BOOTMODE%
 echo.
 
@@ -181,9 +177,9 @@ echo.
 echo =====================================================
 echo ✅ 모든 과정 완료!
 echo =====================================================
-echo - 복사된 VHD: %DST_VHD%
-echo - 초기화 대상: Disk %DISK_NUM%
-echo - 부팅 모드: %BOOTMODE%
+echo - 복사된 VHD : %DST_VHD%
+echo - 초기화 대상 : Disk %DISK_NUM%
+echo - 부팅 모드 : %BOOTMODE%
 echo =====================================================
 echo.
 pause
