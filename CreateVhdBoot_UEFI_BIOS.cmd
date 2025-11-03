@@ -338,9 +338,16 @@ if not exist "%SRC_VHD%" (
 )
 if not exist "%DST_VHD_DIR%" mkdir "%DST_VHD_DIR%" >nul 2>&1
 
-copy /Y "%SRC_VHD%" "%DST_VHD%" >nul 2>&1
-if errorlevel 1 (
-  echo [ERROR] VHD 복사 실패.
+for %%F in ("%SRC_VHD%") do (
+  set "SRC_DIR=%%~dpF"
+  set "SRC_NAME=%%~nxF"
+)
+
+echo [INFO] robocopy로 복사 시작: !SRC_DIR!!SRC_NAME! -> %DST_VHD_DIR%
+robocopy "!SRC_DIR!" "%DST_VHD_DIR%" "!SRC_NAME!" /ETA /R:1 /W:1
+set "RC=%ERRORLEVEL%"
+if %RC% GEQ 8 (
+  echo [ERROR] VHD 복사 실패. robocopy 종료코드: %RC%
   pause
   exit /b
 )
