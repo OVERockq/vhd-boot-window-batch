@@ -344,7 +344,7 @@ for %%F in ("%SRC_VHD%") do (
 )
 
 echo [INFO] robocopy로 복사 시작: !SRC_DIR!!SRC_NAME! -> %DST_VHD_DIR%
-robocopy "!SRC_DIR!" "%DST_VHD_DIR%" "!SRC_NAME!" /ETA /R:1 /W:1
+robocopy "!SRC_DIR!" "%DST_VHD_DIR%" "!SRC_NAME!" /ETA /R:1 /W:1 /NFL /NDL
 set "RC=%ERRORLEVEL%"
 if %RC% GEQ 8 (
   echo [ERROR] VHD 복사 실패. robocopy 종료코드: %RC%
